@@ -26,8 +26,6 @@ router.post('/signup', async function(req, res, next) {
      email,
      password: hashedPassword
    }
-
-
    // store the result in the database 
 
    // return a valid response
