@@ -1,0 +1,38 @@
+{
+  "name": "shit",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "start": "node ./bin/www",
+    "lint": "standardx \"./**/*.ts\"",
+    "lint:fix": "standardx --fix \"./**/*.ts\"",
+    "test": "jest --config=jest.json --passWithNoTests",
+    "test:e2e": "jest --config=jest-e2e.json --verbose --passWithNoTests",
+    "prepare": "husky install",
+    "typeorm": "node -r tsconfig-paths/register ./node_modules/typeorm/cli.js --config ./utils/ormconfig.js",
+    "migration::create": "npm run typeorm migration:create -- -n",
+    "migration::generate": "npm run typeorm migration:generate -- -n",
+    "migration::up": "npm run typeorm migration:run",
+    "migration::down": "npm run typeorm migration:revert",
+    "dev": "nodemon app.js"
+  },
+  "husky": {
+    "hooks": {
+      "pre-commit": "npm run lint && npm run test && npm run test:e2e"
+    }
+  },
+  "dependencies": {
+    "bcrypt": "^5.0.1",
+    "cookie-parser": "~1.4.4",
+    "debug": "~2.6.9",
+    "express": "~4.16.1",
+    "http-errors": "~1.6.3",
+    "husky": "^7.0.4",
+    "jade": "~1.11.0",
+    "morgan": "~1.9.1",
+    "pg": "^8.7.1",
+    "standardx": "^7.0.0",
+    "ts-node": "^10.4.0",
+    "typeorm": "^0.2.41"
+  }
+}

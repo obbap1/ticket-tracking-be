@@ -1,0 +1,32 @@
+version: '3'
+services: 
+    database:
+        image: postgres:11.5
+        environment: 
+            POSTGRES_PASSWORD: password123
+            POSTGRES_USER: testUser
+            POSTGRES_DB: tracker_db
+            PG_DATA: /var/lib/postgresql/data
+        volumes:
+            - ./pgdata:/var/lib/postgresql/data
+            - ./db/initdb.d:/docker-entrypoint-initdb.d
+        ports:
+            - '6431:5432'
+        networks:
+            - tracker 
+    cache:
+        image: redis:6.0.6 
+        ports: 
+            - '6399:6379'
+        networks:
+            - tracker 
+
+networks:
+    tracker:
+        driver: bridge
+volumes:
+    pgdata:
+        external: false
+    exclude:
+    
+        
