@@ -10,6 +10,12 @@ services:
         volumes:
             - ./pgdata:/var/lib/postgresql/data
             - ./db/initdb.d:/docker-entrypoint-initdb.d
+        # healthcheck:
+        #     test: pg_isready
+        #     interval: 1m30s
+        #     timeout: 30s
+        #     retries: 5
+        #     start_period: 5s
         ports:
             - '6431:5432'
         networks:
@@ -20,6 +26,12 @@ services:
             - '6399:6379'
         networks:
             - tracker 
+        healthcheck:
+            test: ["CMD", "redis-cli", "ping"]
+            interval: 1s
+            timeout: 3s
+            retries: 30
+            
 
 networks:
     tracker:
