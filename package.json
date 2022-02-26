@@ -4,7 +4,7 @@
   "private": true,
   "type": "commonjs",
   "scripts": {
-    "start": "node ./bin/www",
+    "start": "node api.js && node ./bin/www",
     "lint": "standardx \"./**/*.ts\"",
     "lint:fix": "standardx --fix \"./**/*.ts\"",
     "test": "jest --config=jest.json --passWithNoTests",
@@ -15,7 +15,7 @@
     "migration::generate": "npm run typeorm migration:generate -- -n",
     "migration::up": "npm run typeorm migration:run",
     "migration::down": "npm run typeorm migration:revert",
-    "dev": "nodemon app.js"
+    "dev": "node api.js && nodemon app.js"
   },
   "husky": {
     "hooks": {
