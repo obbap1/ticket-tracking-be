@@ -8,22 +8,24 @@ const {getConnection} = require('typeorm')
 const {V4} = require('paseto')
 const cache = require('../utils/redisconfig')
 const k = require('../utils/key')
+const AuthMiddleware = require('../middlewares/auth.middleware');
+const { query } = require('express');
 
-const maximumDescriptionSize = 28
+const maximumDescriptionSize = 280
 const allowedTicketStates = ['TODO', 'DONE']
 const saltValue = 10
 
 
 /* GET home page. */
-router.get('/', function(req, res, next) {
+router.get('/', function(req, res) {
   res.render('index', { title: 'Express' });
-});
+}); 
 
-router.post('/health', function(req, res, next) {
+router.post('/health', function(req, res) {
   return res.status(200).send('OK')
 });
 
-router.post('/signup', async function(req, res, next) {
+router.post('/signup', async function(req, res) {
   try{
    const {firstName, lastName, type, email, password} = req.body
    if (!firstName || !lastName || !type || !email || !password) {
@@ -49,7 +51,7 @@ router.post('/signup', async function(req, res, next) {
   }
 });
 
-router.post('/login', async function(req, res, next) {
+router.post('/login', async function(req, res) {
   try{
     const {email, password} = req.body 
     if (!email || !password) {
@@ -63,20 +65,30 @@ router.post('/login', async function(req, res, next) {
       return res.status(400).json({message: 'User doesnt exist'})
     }
 
-    const pKey = (await k.keys()).secretKey
+    const pKey =  k.keys().secretKey
     const token = await V4.sign({sub: user.id}, pKey)
-    cache.set(user.id, token)
+    await cache.set(user.id, token, "EX", 86400)
 
-    return res.status(200).json({message: 'Login successful'})
+    return res.status(200).json({message: 'Login successful', token})
 
   }catch(error){
     return res.status(500).json({message: error.message || 'Invalid request'})
   }
 })
 
-router.post('/ticket', async function(req, res, next) {
-  const {userID, description, assigneeID, status} = req.body
-  if (!userID || !description || !assigneeID || !status ) {
+router.post('/logout',AuthMiddleware.Verify, async function(req, res) {
+  try{
+    await cache.del(res.locals.userID)
+    return res.status(200).json({message: 'Logout successful'})
+  }catch(error){
+    return res.status(500).json({message: error.message || 'Invalid request'})
+  }
+})
+
+router.post('/ticket', AuthMiddleware.Verify, async function(req, res) {
+  try{
+  const {description, assigneeID, status} = req.body
+  if (!description || !assigneeID || !status ) {
     return res.status(422).json({message: 'Incomplete credentials'})
   }
   
@@ -88,9 +100,13 @@ router.post('/ticket', async function(req, res, next) {
     return res.status(400).json({message: 'Invalid ticket state'})
   }
 
+  if(res.locals.userType !== "customer") {
+    return res.status(400).json({message: 'Invalid request'})
+  }
+
   const ticketData = {
-    userID,
     description,
+    creatorID: res.locals.userID,
     assigneeID,
     status
   }
@@ -100,17 +116,84 @@ router.post('/ticket', async function(req, res, next) {
   ticketRepo.save(ticketData)
 
   return res.status(200).json({message: 'Ticket created successfully'})
+  }catch(error) {
+    return res.status(500).json({message: error.message || 'Invalid request'})
+  }
 });
 
-// TODO: use the actual database
-// edit / delete tickets
-// fetch tickets for a user 
-// resolve tickets 
-// JWT authentication with Redis to complete sign in 
-// Email notification for users 
+router.get('/ticket', AuthMiddleware.Verify, async function(req, res) {
+  try{
+  const {ticketID} = req.query
+  const connection = getConnection()
+  const ticketRepo = connection.getRepository(Ticket)
+  const queryObj = {}
+  if (res.locals.userType === "customer"){
+    queryObj.creatorID = res.locals.userID
+  }else if (res.locals.userType === "developer"){
+    queryObj.assigneeID = res.locals.userID
+  }
+  const ticket = ticketID ? await ticketRepo.find({id: ticketID,...queryObj }) : await ticketRepo.find(queryObj)
+  if(!ticket.length) {
+    return res.status(400).json({message: 'Invalid ticket'})
+  }
+  return res.status(200).json({message: 'ticket find successful', data: ticket})
+  }catch(error) {
+    return res.status(500).json({message: error.message || 'Invalid request'})
+  }
+})
 
+router.put('/ticket/:ticketID', AuthMiddleware.Verify, async function(req, res) {
+  try{
+    const {ticketID} = req.params
+    if(!ticketID) {
+      return res.status(400).json({message: 'Invalid ticket'})
+    }
+    const {description, assigneeID, status} = req.body
+    const queryObj = {}
+    if(res.locals.userType === "customer") {
+      if(!description && !assigneeID) {
+        return res.status(400).json({message: 'Invalid request'})
+      }
+      if(description) {
+        queryObj.description = description
+      }
+      if(assigneeID) {
+        queryObj.assigneeID = assigneeID
+      }
+      queryObj.creatorID = res.locals.userID
+    }else if(res.locals.userType === "developer") {
+      if(!status) {
+        return res.status(400).json({message: 'Invalid request'})
+      }
+      queryObj.status = status   
+      queryObj.assigneeID = res.locals.userID
+    }
 
+    const connection = getConnection()
+    const ticketRepo = connection.getRepository(Ticket)
+    await ticketRepo.update(ticketID, queryObj)
 
+    return res.status(200).json({message: 'Update successful'})
 
+  }catch(error) {
+    return res.status(500).json({message: error.message || 'Invalid request'})
+  }
+})
+
+router.delete('/ticket/:ticketID', AuthMiddleware.Verify, async function(req, res) {
+  try{
+    const {ticketID} = req.params
+    if(!ticketID || res.locals.userType !== "customer") {
+      return res.status(400).json({message: 'Invalid ticket'})
+    }
+    const connection = getConnection()
+    const ticketRepo = connection.getRepository(Ticket)
+    await ticketRepo.delete({id: ticketID, creatorID: res.locals.userID})
+
+    return res.status(200).json({message: 'ticket deleted successfully'})
+  }catch(error){
+    return res.status(500).json({message: error.message || 'Invalid request'})
+  }
+})
 
 module.exports = router;

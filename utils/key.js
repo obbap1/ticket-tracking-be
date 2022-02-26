@@ -1,16 +1,8 @@
-const {V4} = require('paseto')
-let privKey, pubKey
 module.exports = {
-    keys: async () => {
-        if(privKey && pubKey) {
+    keys: () => {
             return {
-                secretKey: privKey,
-                publicKey: pubKey
+                secretKey: "k4.secret.ps7peurpzwM9PMVyItFsO5CV-znVksLn0CtbSCeXsx-i1McHTYrWOEAE0EKbkn31NtitrkOhtUqk77mKsWxH4Q",
+                publicKey: "k4.public.otTHB02K1jhABNBCm5J99TbYra5DobVKpO-5irFsR-E"
             }
-        }
-        const {secretKey, publicKey} = await V4.generateKey("public", {format: 'paserk'})
-        privKey = secretKey
-        pubKey = publicKey
-        return {secretKey, publicKey}
     }
 }
