@@ -9,7 +9,7 @@ dotenv.config()
 
 const indexRouter = require('./routes/index');
 require('./utils/redisconfig')
-require('./utils/ormconfig')
+require('./utils/db')
 
 const app = express();
 
